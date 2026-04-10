@@ -1243,6 +1243,27 @@ class TestSegmentGathererCollections:
         assert sg.slots["1980-01-01 13:00:00"].output_metadata["end_time"] == dt.datetime(1980, 1, 1, 13, 3, 0)
 
 
+    def test_end_time_correct_group_by_fractional_minutes(self):
+        """Test that end_time is correct in message."""
+        config = fake_config.copy()
+        config["group_by_minutes"] = 2.5
+        sg = SegmentGatherer(config)
+        rawstrs = []
+        for mm, ss in (("02", "30"), ("05", "00"), ("07", "30")):
+            rawstr=f"pytroll://tree/oak file pytroll@forest 1980-01-01T13:0{mm}:{ss}.000000 v1.01 application/json "
+                   f'{{"platform_name": "forest", "start_time": "1980-01-01T13:{mm}:{ss}", "end_time": '
+                   f'"1980-01-01T13:0{i+1:d}:00", "uri": "/data/oak-s19800101130{i:d}00-e19800101130{i+1:d}00-'
+                   f's00{i:d}.tree", "uid": "oak-s19800101130{i:d}00-e19800101130{i+1:d}00-s00{i:d}.tree", '
+                   '"sensor": "Thaumetopoea processionea"}')
+                for i in range(3)]
+        messages = [posttroll.message.Message(rawstr) for rawstr in rawstrs]
+        for msg in messages:
+            sg.process(msg)
+        assert len(sg.slots) == 1
+        assert sg.slots["1980-01-01 13:00:00"].output_metadata["start_time"] == dt.datetime(1980, 1, 1, 13, 0, 0)
+        assert sg.slots["1980-01-01 13:00:00"].output_metadata["end_time"] == dt.datetime(1980, 1, 1, 13, 3, 0)
+
+
 pps_message1 = ('pytroll://segment/CF/2/CMA/norrkoping/utv/polar/direct_readout/ file safusr.u@lxserv1043.smhi.se '
                 '2020-10-16T08:01:59.035595 v1.01 application/json {"module": "ppsCmask", "pps_version": "v2018", '
                 '"platform_name": "NOAA-20", "orbit": 15081, "sensor": "viirs", "start_time": '
