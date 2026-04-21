@@ -250,7 +250,7 @@ class TestSegmentGatherer:
         fake_message = FakeMessage(mda)
         message = Message(fake_message, self.msg0deg._patterns['msg'])
         self.msg0deg._create_slot(message)
-        now = dt.datetime.utcnow()
+        now = dt.datetime.now(dt.timezone.utc)
         slot = self.msg0deg.slots[slot_str]
         slot.update_timeout()
         diff = slot['timeout'] - now
@@ -313,7 +313,7 @@ class TestSegmentGatherer:
         mda = self.mda_msg0deg.copy()
         slot_str = str(mda["start_time"])
 
-        now = dt.datetime.utcnow()
+        now = dt.datetime.now(dt.timezone.utc)
         future = now + dt.timedelta(minutes=1)
         past = now - dt.timedelta(minutes=1)
 

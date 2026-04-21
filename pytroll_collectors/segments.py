@@ -335,7 +335,7 @@ class Slot:
 
     def update_timeout(self):
         """Update the timeout."""
-        timeout = dt.datetime.utcnow() + self._timeliness
+        timeout = dt.datetime.now(dt.timezone.utc) + self._timeliness
         self['timeout'] = timeout
         logger.info("Setting timeout to %s for slot %s.",
                     str(timeout), self.timestamp)
@@ -358,7 +358,7 @@ class Slot:
         timeout = self['timeout']
         if len(slot_pattern['critical_files']) > 0 and \
            slot_pattern['critical_files'].issubset(slot_pattern['received_files']):
-            delay = dt.datetime.utcnow() - (timeout - self._timeliness)
+            delay = dt.datetime.now(dt.timezone.utc) - (timeout - self._timeliness)
             if delay.total_seconds() > 0:
                 slot_pattern['delayed_files'][uid] = delay.total_seconds()
 
@@ -468,7 +468,7 @@ class Slot:
                         "for slot %s.", self.timestamp)
             return Status.SLOT_READY
 
-        if dt.datetime.utcnow() > timeout:
+        if dt.datetime.now(dt.timezone.utc) > timeout:
             if (Status.SLOT_NONCRITICAL_NOT_READY in status_values and
                 (Status.SLOT_READY in status_values or
                     Status.SLOT_READY_BUT_WAIT_FOR_MORE in status_values)):
