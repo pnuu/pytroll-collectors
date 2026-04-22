@@ -523,7 +523,7 @@ def test_sigterm(tmp_config_file, tmp_config_parser, section):
     import os
     import signal
     import time
-    from multiprocessing import get_context, Process
+    from multiprocessing import Process
 
     from pytroll_collectors.geographic_gatherer import GeographicGatherer
 
