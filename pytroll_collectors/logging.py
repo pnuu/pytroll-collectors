@@ -16,10 +16,11 @@ def _setup_legacy_logging(opts, name):
     """Set up logging using the existing pytroll-collectors behaviour."""
     handlers = []
 
-    if opts.log_config:
+    log_file = getattr(opts, "log", None)
+    if log_file:
         handlers.append(
             logging.handlers.TimedRotatingFileHandler(
-                opts.log_config,
+                log_file,
                 "midnight",
                 backupCount=7,
             )
@@ -92,7 +93,8 @@ def setup_logging(opts, name):
       - opts.stalker_log_config
 
     Fallback:
-      - existing log/verbose-based setup
+      - existing log/verbose-based setup, where *opts.log* is the file to log
+        to (stdout only if it is not given)
     """
     log_config = getattr(opts, "log_config", None)
     if not log_config:
