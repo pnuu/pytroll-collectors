@@ -73,7 +73,6 @@ def stop_observer(observer):
 def get_settings(command_args):
     """Get the trollstalker settings."""
     args = parse_args(command_args)
-    logger = setup_logging(args, __name__)
 
     # Parse commandline arguments.  If args are given, they override
     # the configuration file.
@@ -93,6 +92,12 @@ def get_settings(command_args):
     filepattern = args.filepattern
     if args.filepattern == '':
         filepattern = None
+
+    aliases = {}
+    custom_vars = OrderedDict()
+    tbus_orbit = False
+    granule_length = 0
+    history = 0
 
     if args.configuration_file is not None:
         config_fname = args.configuration_file
@@ -150,6 +155,8 @@ def get_settings(command_args):
         else:
             args.log_config = None
             args.verbose = config.get("loglevel", "INFO").upper() == "DEBUG"
+
+    logger = setup_logging(args, __name__)
 
     if event_names:
         warnings.warn("Event names is deprecated and is now ignored. Files are detected on write close and moving in.",
@@ -241,7 +248,6 @@ class WatchdogHandler(FileSystemEventHandler):
     def on_closed(self, event):
         """Trigger processing on closed write."""
         self.processor.process(event)
-        print("yep, processed")
 
     def on_moved(self, event):
         """Trigger processing on move."""

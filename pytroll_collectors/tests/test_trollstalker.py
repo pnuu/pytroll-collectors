@@ -8,6 +8,15 @@ from pytroll_collectors.trollstalker import start_observer, stop_observer
 
 
 LAG_SECONDS = 0.02
+TIMEOUT_SECONDS = 10
+
+
+def wait_for_messages(messages, count=1, timeout=TIMEOUT_SECONDS):
+    """Wait until *count* messages have been published, or *timeout* expires."""
+    deadline = time.time() + timeout
+    while len(messages) < count and time.time() < deadline:
+        time.sleep(LAG_SECONDS)
+    return messages
 
 
 @pytest.fixture
@@ -39,6 +48,18 @@ history=10"""
 
 
 @pytest.fixture
+def subdir_to_watch(dir_to_watch):
+    """Create a subdirectory of the watched directory.
+
+    The directory is created before the observer is started, so that the watch
+    for it is guaranteed to be in place when the test writes a file in it.
+    """
+    subdir_to_watch = dir_to_watch / "new_dir"
+    os.makedirs(subdir_to_watch)
+    return subdir_to_watch
+
+
+@pytest.fixture
 def messages_from_observer(config_file):
     """Create an observer and yield the messages it published."""
     from posttroll.testing import patched_publisher
@@ -49,15 +70,12 @@ def messages_from_observer(config_file):
         stop_observer(obs)
 
 
-def test_trollstalker(messages_from_observer, dir_to_watch):
+def test_trollstalker(subdir_to_watch, messages_from_observer):
     """Test trollstalker functionality."""
-    subdir_to_watch = dir_to_watch / "new_dir"
-    os.mkdir(subdir_to_watch)
-
     trigger_file = subdir_to_watch / "hrpt_noaa18_20230524_1017_10101.l1b"
     with open(trigger_file, "w") as fd:
         fd.write("hej")
-    time.sleep(LAG_SECONDS)
+    wait_for_messages(messages_from_observer)
 
     message = messages_from_observer[0]
     assert message.startswith("pytroll://HRPT/l1b/dev/mystation file ")
@@ -72,7 +90,7 @@ def test_trollstalker_monitored_directory_is_created(messages_from_observer, dir
     trigger_file = dir_to_watch / "hrpt_noaa18_20230524_1017_10101.l1b"
     with open(trigger_file, "w") as fd:
         fd.write("hej")
-    time.sleep(LAG_SECONDS)
+    wait_for_messages(messages_from_observer)
     assert os.path.exists(dir_to_watch)
 
 
@@ -83,7 +101,7 @@ def test_trollstalker_handles_moved_files(messages_from_observer, dir_to_watch, 
     with open(trigger_file, "w") as fd:
         fd.write("hej")
     os.rename(trigger_file, dir_to_watch / filename)
-    time.sleep(LAG_SECONDS)
+    wait_for_messages(messages_from_observer)
     assert len(messages_from_observer) == 1
     assert messages_from_observer[0].startswith("pytroll://HRPT/l1b/dev/mystation file ")
 
@@ -95,3 +113,59 @@ def test_event_names_are_deprecated(config_file):
     with pytest.deprecated_call():
         obs = start_observer(["-c", os.fspath(config_file), "-C", "noaa_hrpt"])
         stop_observer(obs)
+
+
+def test_settings_can_be_given_without_a_config_file():
+    """Test that trollstalker can be configured from the command line only."""
+    from pytroll_collectors.trollstalker import get_settings
+
+    monitored_dirs, settings = get_settings(["-d", "/tmp/some_dir", "-t", "/some/topic",
+                                             "-i", "avhrr/3"])
+
+    assert monitored_dirs == ["/tmp/some_dir"]
+    assert settings["topic"] == "/some/topic"
+    assert settings["aliases"] == {}
+    assert settings["custom_vars"] == {}
+    assert settings["tbus_orbit"] is False
+    assert settings["granule_length"] == 0
+    assert settings["history_length"] == 0
+
+
+def test_logging_config_from_config_file_is_used(tmp_path, config_file):
+    """Test that the logging config given in the config file is taken into use."""
+    import logging
+
+    from pytroll_collectors.trollstalker import get_settings
+
+    log_file = tmp_path / "trollstalker.log"
+    log_config_file = tmp_path / "log_config.yaml"
+    log_config_file.write_text(f"""
+version: 1
+formatters:
+  simple:
+    format: '%(levelname)s %(name)s %(message)s'
+handlers:
+  file:
+    class: logging.FileHandler
+    filename: {log_file}
+    formatter: simple
+root:
+  level: DEBUG
+  handlers: [file]
+""")
+    with open(config_file, "a") as fd:
+        fd.write(f"\nlog_config={log_config_file}\n")
+
+    root = logging.getLogger("")
+    old_handlers = root.handlers[:]
+    old_level = root.level
+    try:
+        get_settings(["-c", os.fspath(config_file), "-C", "noaa_hrpt"])
+        assert log_file.exists()
+    finally:
+        for handler in root.handlers[:]:
+            root.removeHandler(handler)
+            handler.close()
+        for handler in old_handlers:
+            root.addHandler(handler)
+        root.setLevel(old_level)
