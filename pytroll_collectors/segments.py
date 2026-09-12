@@ -387,15 +387,13 @@ class Slot:
         self._update_metadata_times(metadata, message)
 
         # Collect all sensors, not only the latest
-        sensors = metadata.get('sensor', [])
         if not isinstance(msg_data["sensor"], (tuple, list, set)):
             msg_data["sensor"] = [msg_data["sensor"]]
-        if not isinstance(sensors, list):
-            sensors = [sensors]
-        for sensor in msg_data["sensor"]:
-            if sensor not in sensors:
-                sensors.append(sensor)
-        slot_metadata['sensor'] = sensors
+        metadata['sensor'] = _collect_sensors(metadata.get('sensor', []), msg_data["sensor"])
+        if metadata is not slot_metadata:
+            # Also collect the sensors of all the patterns on the collection level
+            slot_metadata['sensor'] = _collect_sensors(slot_metadata.get('sensor', []),
+                                                       msg_data["sensor"])
 
     def _add_file_info_to_metadata(self, metadata, message):
         msg_data = message.message_data
@@ -500,6 +498,17 @@ class Slot:
             return Status.SLOT_NONCRITICAL_NOT_READY
         if Status.SLOT_READY_BUT_WAIT_FOR_MORE in status_values:
             return Status.SLOT_READY_BUT_WAIT_FOR_MORE
+
+
+def _collect_sensors(sensors, new_sensors):
+    """Add *new_sensors* to *sensors*, without duplicates, and return a new list."""
+    if not isinstance(sensors, list):
+        sensors = [sensors]
+    collected = list(sensors)
+    for sensor in new_sensors:
+        if sensor not in collected:
+            collected.append(sensor)
+    return collected
 
 
 def _create_segment_list(segments):

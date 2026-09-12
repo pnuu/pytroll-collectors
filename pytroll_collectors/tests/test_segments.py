@@ -1591,3 +1591,41 @@ def test_remote_file_with_filesystem_passes_filesystem_info(filesystem):
     path = "/local_disk/tellicast/received/TER-1/T01-MTG-1/W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI1+FCI-1C-RRAD-FDHSI-FD--CHK-BODY--DIS-NC4E_C_EUMT_20250626073728_IDPFI_OPE_20250626073332_20250626073411_N_JLS_O_0046_0017.nc"  # noqa
     assert segment_gatherer.slots[timestamp].output_metadata["dataset"][0]["path"] == path
     assert "path" not in segment_gatherer.slots[timestamp].output_metadata
+
+
+def test_sensors_are_collected_from_all_patterns():
+    """Test that the sensors of all the patterns end up in the collection metadata."""
+    col = SegmentGatherer(CONFIG_DOUBLE)
+    start_time = dt.datetime(2016, 11, 28, 11, 0)
+    mda_msg = {"uid": "H-000-MSG3__-MSG3________-VIS006___-000001___-201611281100-__",
+               "uri": "/data/msg/H-000-MSG3__-MSG3________-VIS006___-000001___-201611281100-__",
+               "start_time": start_time, "sensor": "seviri"}
+    mda_iodc = {"uid": "H-000-MSG2__-MSG2_IODC___-VIS006___-000001___-201611281100-__",
+                "uri": "/data/iodc/H-000-MSG2__-MSG2_IODC___-VIS006___-000001___-201611281100-__",
+                "start_time": start_time, "sensor": "seviri_iodc"}
+
+    message = Message(FakeMessage(mda_msg), col._patterns["msg"])
+    slot = col._create_slot(message)
+    slot.add_file(message)
+    slot.add_file(Message(FakeMessage(mda_iodc), col._patterns["iodc"]))
+
+    metadata = slot.output_metadata
+    assert metadata["sensor"] == ["seviri", "seviri_iodc"]
+    assert metadata["collection"]["msg"]["sensor"] == ["seviri"]
+    assert metadata["collection"]["iodc"]["sensor"] == ["seviri_iodc"]
+    # The collection level sensors must not be an alias of one of the patterns
+    assert metadata["sensor"] is not metadata["collection"]["iodc"]["sensor"]
+
+
+def test_sensors_are_collected_for_a_single_pattern():
+    """Test that sensors are collected when there is only one pattern."""
+    col = SegmentGatherer(CONFIG_SINGLE)
+    mda = {"uid": "H-000-MSG3__-MSG3________-VIS006___-000001___-201611281100-__",
+           "uri": "/data/msg/H-000-MSG3__-MSG3________-VIS006___-000001___-201611281100-__",
+           "start_time": dt.datetime(2016, 11, 28, 11, 0), "sensor": ["seviri"]}
+
+    message = Message(FakeMessage(mda), col._patterns["msg"])
+    slot = col._create_slot(message)
+    slot.add_file(message)
+
+    assert slot.output_metadata["sensor"] == ["seviri"]
