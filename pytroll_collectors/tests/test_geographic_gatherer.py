@@ -144,6 +144,15 @@ class TestGeographicGatherer:
         with open(tmp_config_file, mode="w") as fp:
             self.config.write(fp)
 
+    def test_init_with_unknown_config_item(self, tmp_config_file):
+        """Test that an unknown config item is reported clearly."""
+        from pytroll_collectors.geographic_gatherer import GeographicGatherer
+
+        opts = arg_parse(["-c", "no_such_section", str(tmp_config_file)])
+
+        with pytest.raises(KeyError, match="no_such_section"):
+            GeographicGatherer(opts)
+
     def test_init_minimal(self, tmp_config_file):
         """Test initialization of GeographicGatherer with minimal config."""
         from pytroll_collectors.geographic_gatherer import GeographicGatherer
