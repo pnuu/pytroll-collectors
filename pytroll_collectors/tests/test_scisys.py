@@ -287,3 +287,39 @@ def test_no_sensor_list_in_sending_topic():
     my_config = ({'publish_topic_pattern': "/{sensor}/{format}/TEST/"})
     subject = get_subject_from_message_and_config(to_send, my_config)
     assert subject == "/multiple_sensors/HRPT/TEST/"
+
+
+def test_internal_message_is_decoded():
+    """Test decoding a 2met! message in the internal format."""
+    message = TwoMetMessage(
+        "Message[ID=1234, time='18 02 2013 - 09:21:35', "
+        "body='STOPRC Stop reception: Satellite: NPP', type='2met.message']")
+
+    assert message._id == 1234
+    assert message._time == datetime.datetime(2013, 2, 18, 9, 21, 35)
+    assert message.body == 'STOPRC Stop reception: Satellite: NPP'
+    assert message._type == '2met.message'
+
+
+def test_internal_message_does_not_execute_code(tmp_path):
+    """Test that code in an internal-format message is not executed."""
+    created_file = tmp_path / "created_by_message"
+    body = f"__import__('pathlib').Path('{created_file}').touch()"
+
+    with pytest.raises(ValueError):
+        TwoMetMessage(f"Message[ID=1, time='18 02 2013 - 09:21:35', "
+                      f"body='dummy', type={body}]")
+
+    assert not created_file.exists()
+
+
+@pytest.mark.parametrize("config, expected", [
+    ({'excluded_satellites': ['fy3d']}, ['fy3d']),
+    ({'excluded_platforms': ['fy3d']}, ['fy3d']),
+    ({}, []),
+])
+def test_get_excluded_satellites(config, expected):
+    """Test getting the excluded satellites from the configuration."""
+    from pytroll_collectors.scisys import get_excluded_satellites
+
+    assert get_excluded_satellites(config) == expected
