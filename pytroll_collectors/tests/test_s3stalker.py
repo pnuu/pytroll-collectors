@@ -1193,3 +1193,20 @@ def test_get_last_files_ls_args(S3FileSystem):
     _ = get_last_files('path')
 
     S3FileSystem.return_value.ls.assert_called_once_with('path', detail=True, refresh=True)
+
+
+def test_example_config_has_the_required_items():
+    """Test that the shipped example config can be used as it is."""
+    from pytroll_collectors.helper_functions import read_yaml
+
+    example = os.path.join(os.path.dirname(__file__), "..", "..", "examples", "s3stalker.yaml")
+    if not os.path.exists(example):
+        pytest.skip("Example configs are not available.")
+
+    config = read_yaml(example)
+
+    # These are the items s3stalker.py requires from the config file
+    assert "s3_bucket" in config
+    assert "fetch_back_to" in config
+    assert "s3_kwargs" in config
+    assert "subject" in config
