@@ -5,7 +5,7 @@ import logging
 import signal
 import time
 
-from configparser import NoOptionError, ConfigParser
+from configparser import ConfigParser
 from warnings import warn
 from trollsift import Parser
 
@@ -58,7 +58,8 @@ class GeographicGatherer:
                     logger.debug("Removed unused section '%s'", section)
             if len(self._config.sections()) == 0:
                 logger.error("No valid config item provided")
-                raise NoOptionError
+                raise KeyError("No config item matching %s found in %s." %
+                               (", ".join(self._opts.config_item), self._opts.config))
 
     def _setup_publisher(self):
         self.publisher = create_started_publisher_from_config(self._collect_publisher_config())

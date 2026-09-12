@@ -3,7 +3,7 @@
 import argparse
 import logging
 import logging.config
-from configparser import RawConfigParser, NoOptionError
+from configparser import RawConfigParser
 from subprocess import Popen, PIPE
 import threading
 import os
@@ -121,10 +121,7 @@ def process_message(msg, config):
         if key in data:
             data[key] = aliases[key].get(data[key], data[key])
 
-    try:
-        min_length = int(config.get('min_length'))
-    except NoOptionError:
-        min_length = 0
+    min_length = int(config.get('min_length', 0))
     if data["end_time"] - data["start_time"] < timedelta(minutes=min_length):
         logger.info('Pass too short, skipping: %s to %s',
                     str(data["start_time"]), str(data["end_time"]))
@@ -227,11 +224,11 @@ def main():
                     if msg is None:
                         continue
                     if msg.type == "collection":
-                        new_msg = str(process_message(msg, config))
+                        new_msg = process_message(msg, config)
                         if new_msg is None:
                             continue
-                        logger.info("Sending %s", new_msg)
-                        pub.send(new_msg)
+                        logger.info("Sending %s", str(new_msg))
+                        pub.send(str(new_msg))
     except KeyboardInterrupt:
         logging.shutdown()
     finally:

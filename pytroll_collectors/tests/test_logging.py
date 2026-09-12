@@ -3,18 +3,17 @@
 
 # Copyright (c) 2026 Pytroll developers
 
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 """Unit testing the logging functionality.
 
@@ -90,3 +89,35 @@ def test_setup_logging_from_invalid_yaml_raises(tmp_path, isolated_logging):
 
     with pytest.raises(ValueError, match="Invalid YAML logging config"):
         _setup_logging_from_config(log_config_file, "pytroll_collectors.test")
+
+
+def test_setup_logging_logs_to_file_given_with_log_option(tmp_path, isolated_logging):
+    """Test that the file given with the -l/--log option is logged to."""
+    from argparse import Namespace
+
+    from pytroll_collectors.logging import setup_logging
+
+    log_file = tmp_path / "collector.log"
+    opts = Namespace(log=str(log_file), log_config=None, verbose=False)
+
+    logger = setup_logging(opts, "pytroll_collectors.test")
+    logger.info("a message in the log file")
+
+    for handler in logging.getLogger("").handlers:
+        handler.flush()
+
+    assert log_file.exists()
+    assert "a message in the log file" in log_file.read_text()
+
+
+def test_setup_logging_without_log_option_only_logs_to_stdout(tmp_path, isolated_logging):
+    """Test that no file handler is created when no log file is given."""
+    from argparse import Namespace
+
+    from pytroll_collectors.logging import setup_logging
+
+    setup_logging(Namespace(log=None, log_config=None, verbose=False), "pytroll_collectors.test")
+
+    handlers = logging.getLogger("").handlers
+    assert handlers
+    assert not any(isinstance(handler, logging.FileHandler) for handler in handlers)

@@ -7,18 +7,17 @@
 #
 #   Panu Lahtinen <panu.lahtinen@fmi.fi>
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 """Gather segments.
 
@@ -387,15 +386,13 @@ class Slot:
         self._update_metadata_times(metadata, message)
 
         # Collect all sensors, not only the latest
-        sensors = metadata.get('sensor', [])
         if not isinstance(msg_data["sensor"], (tuple, list, set)):
             msg_data["sensor"] = [msg_data["sensor"]]
-        if not isinstance(sensors, list):
-            sensors = [sensors]
-        for sensor in msg_data["sensor"]:
-            if sensor not in sensors:
-                sensors.append(sensor)
-        slot_metadata['sensor'] = sensors
+        metadata['sensor'] = _collect_sensors(metadata.get('sensor', []), msg_data["sensor"])
+        if metadata is not slot_metadata:
+            # Also collect the sensors of all the patterns on the collection level
+            slot_metadata['sensor'] = _collect_sensors(slot_metadata.get('sensor', []),
+                                                       msg_data["sensor"])
 
     def _add_file_info_to_metadata(self, metadata, message):
         msg_data = message.message_data
@@ -500,6 +497,17 @@ class Slot:
             return Status.SLOT_NONCRITICAL_NOT_READY
         if Status.SLOT_READY_BUT_WAIT_FOR_MORE in status_values:
             return Status.SLOT_READY_BUT_WAIT_FOR_MORE
+
+
+def _collect_sensors(sensors, new_sensors):
+    """Add *new_sensors* to *sensors*, without duplicates, and return a new list."""
+    if not isinstance(sensors, list):
+        sensors = [sensors]
+    collected = list(sensors)
+    for sensor in new_sensors:
+        if sensor not in collected:
+            collected.append(sensor)
+    return collected
 
 
 def _create_segment_list(segments):

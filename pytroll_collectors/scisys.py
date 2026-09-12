@@ -15,6 +15,7 @@ Outputs messages with the following metadata:
 import logging
 import os
 import socket
+from ast import literal_eval
 import xml.etree.ElementTree as etree
 from datetime import datetime, timedelta
 from time import sleep
@@ -70,14 +71,14 @@ class TwoMetMessage(object):
         dummy, content = mstring.split("[", 1)
         content = content.rsplit("]", 1)[0]
         dic = dict((item.split("=", 1) for item in content.split(", ", 3)))
-        self._id = eval(dic["ID"])
+        self._id = literal_eval(dic["ID"])
         self._time = datetime.strptime(
-            eval(dic["time"]), "%d %m %Y - %H:%M:%S")
+            literal_eval(dic["time"]), "%d %m %Y - %H:%M:%S")
         try:
-            self.body = eval(dic["body"])
-        except SyntaxError:
+            self.body = literal_eval(dic["body"])
+        except (SyntaxError, ValueError):
             self.body = str(dic["body"])
-        self._type = eval(dic["type"])
+        self._type = literal_eval(dic["type"])
 
     def _xml_decode(self, mstring):
         """Decode xml 2met! messages."""
@@ -494,6 +495,18 @@ def get_subject_from_message_and_config(to_send, config):
     return compose(config['publish_topic_pattern'], to_send_dict)
 
 
+def get_excluded_satellites(config):
+    """Get the satellites to exclude from the configuration.
+
+    The configuration option is ``excluded_satellites``.  The old name
+    ``excluded_platforms`` is still accepted.
+    """
+    try:
+        return config['excluded_satellites']
+    except KeyError:
+        return config.get('excluded_platforms', [])
+
+
 def receive_from_zmq(config_filename,
                      target_server, ftp_prefix,
                      publish_port=0, nameservers=None, days=1):
@@ -505,7 +518,7 @@ def receive_from_zmq(config_filename,
     config = read_config(config_filename)
 
     sock = GMCSubscriber(config['host'], config['port'])
-    msg_rec = MessageReceiver(config['host'], config['excluded_platforms'],
+    msg_rec = MessageReceiver(config['host'], get_excluded_satellites(config),
                               target_server, ftp_prefix)
 
     with Publish("receiver", port=publish_port,
